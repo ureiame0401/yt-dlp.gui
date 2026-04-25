@@ -1,4 +1,5 @@
 import locale
+import os
 import re
 import shlex
 import shutil
@@ -599,15 +600,49 @@ class MainWindow(QMainWindow):
                 f"已設定預設輸出資料夾：{default_output_dir}"
             )
 
+    def resolve_from_path_only(self, command_name: str) -> str | None:
+        path_env = os.environ.get("PATH", "")
+        if not path_env:
+            return None
+
+        names = [command_name]
+        if sys.platform == "win32" and not command_name.lower().endswith(".exe"):
+            names.append(f"{command_name}.exe")
+
+        for folder in path_env.split(os.pathsep):
+            if not folder:
+                continue
+            for name in names:
+                candidate = Path(folder) / name
+                if candidate.exists() and candidate.is_file():
+                    return str(candidate)
+
+        return None
+
     def resolve_command(self, text_value, fallback_name):
         value = text_value.strip()
+
         if value:
+            lowered = value.lower()
+            if lowered in {"yt-dlp", "yt-dlp.exe"}:
+                resolved = self.resolve_from_path_only("yt-dlp")
+                if resolved:
+                    return resolved
+
             if Path(value).exists():
                 return value
+
             resolved = shutil.which(value)
             if resolved:
                 return resolved
+
             return None
+
+        if fallback_name.lower() == "yt-dlp":
+            resolved = self.resolve_from_path_only("yt-dlp")
+            if resolved:
+                return resolved
+
         return shutil.which(fallback_name)
 
     def resolve_ffmpeg_path(self):
@@ -631,6 +666,7 @@ class MainWindow(QMainWindow):
     def check_program_version(self, cmd_path, version_arg="--version"):
         if not cmd_path:
             return False, "未找到"
+
         try:
             result = subprocess.run(
                 [cmd_path, version_arg],
@@ -638,10 +674,13 @@ class MainWindow(QMainWindow):
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=5,
+                timeout=15,
             )
+        except subprocess.TimeoutExpired:
+            return False, f"檢查逾時：{cmd_path}"
         except Exception as exc:
             return False, f"檢查失敗：{exc}"
+
         output = (result.stdout or result.stderr or "").strip().splitlines()
         first_line = output[0] if output else "可執行，但無版本資訊"
         return (result.returncode == 0), first_line

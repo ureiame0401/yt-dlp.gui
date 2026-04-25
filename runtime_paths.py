@@ -25,13 +25,17 @@ def _candidate_files(base_dir: Path, names: list[str]) -> list[Path]:
 
 
 def detect_bundled_ytdlp() -> str | None:
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+
     base_dir = get_app_base_dir()
     names = ["yt-dlp.exe", "yt-dlp"] if sys.platform == "win32" else ["yt-dlp"]
     for path in _candidate_files(base_dir, names):
         if path.exists() and path.is_file():
             return str(path)
-    found = shutil.which("yt-dlp")
-    return found
+
+    return None
 
 
 def detect_bundled_ffmpeg_dir() -> str | None:
