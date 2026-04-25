@@ -2,4 +2,4 @@ __pycache__/
 *.pyc
 ffmpeg.exe
 ffprobe.exe
-yt-dlp_localw.exe
+yt-dlp_local.exe
